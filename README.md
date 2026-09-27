@@ -1,2 +1,3 @@
-# pong
-idk
+import pygame
+import random
+import math
