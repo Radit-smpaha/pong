@@ -42,13 +42,14 @@ YELLOW = (255, 220, 80)
 GRAY = (80, 90, 120)
 
 # =========================
-# FONTS
+# FONTS (FIXED FOR CLOUD)
 # =========================
-title_font = pygame.font.SysFont("Arial", 44, bold=True)
-score_font = pygame.font.SysFont("Arial", 70, bold=True)
-big_font = pygame.font.SysFont("Arial", 80, bold=True)
-font = pygame.font.SysFont("Arial", 24, bold=True)
-small_font = pygame.font.SysFont("Arial", 18)
+# Using None tells Pygame to use its safe, built-in fallback font asset
+title_font = pygame.font.Font(None, 55)
+score_font = pygame.font.Font(None, 90)
+big_font = pygame.font.Font(None, 100)
+font = pygame.font.Font(None, 32)
+small_font = pygame.font.Font(None, 24)
 
 # =========================
 # PADDLES
@@ -133,19 +134,19 @@ def make_particles(x, y, color, amount=15):
         ])
 
 def update_particles():
-    for particle in particles[:]:
-        particle[0] += particle[2]  # Update X position
-        particle[1] += particle[3]  # Update Y position
-        particle[4] -= 1            # Decrease life timer
-        if particle[4] <= 0:
-            particles.remove(particle)
+    for p in particles[:]:
+        p[0] += p[2]  # Update X position
+        p[1] += p[3]  # Update Y position
+        p[4] -= 1     # Decrease life timer
+        if p[4] <= 0:
+            particles.remove(p)
 
 def draw_particles():
-    for particle in particles:
+    for p in particles:
         pygame.draw.circle(
             screen,
-            particle[5],
-            (int(particle[0]), int(particle[1])),
+            p[5],
+            (int(p[0]), int(p[1])),
             3
         )
 
@@ -244,7 +245,6 @@ while running:
     # =====================
     if not game_over and countdown == 0:
         # Simple placeholder autonomous movement so the game plays itself on the web
-        # (Since standard desktop key listeners don't cross the cloud fluidly)
         if ball.centery < left.centery and random.random() < 0.70:
             left.y -= PADDLE_SPEED
         elif ball.centery > left.centery and random.random() < 0.70:
@@ -348,3 +348,7 @@ while running:
     elif not game_over and countdown == 0 and ball_x != 0:
         if pygame.time.get_ticks() - countdown_timer < 500:
             go_text = font.render("GO!", True, CYAN)
+            screen.blit(go_text, (WIDTH // 2 - go_text.get_width() // 2, HEIGHT // 2 - 80))
+
+    # Game Over State
+    if game_over:
