@@ -1,16 +1,30 @@
+import streamlit as st
+from PIL import Image
 import pygame
 import random
 import math
 
+# =========================
+# STREAMLIT UI SETUP
+# =========================
+st.set_page_config(page_title="NEON DUEL", layout="centered")
+st.title("🕹️ NEON DUEL — Web Arcade")
+st.write("If you are running this in the cloud, frames will update automatically below.")
+
+# Create an empty placeholder to stream the gameplay frames
+frame_placeholder = st.empty()
+
+# Initialize Pygame
 pygame.init()
 
 # =========================
-# WINDOW
+# WINDOW DIMENSIONS
 # =========================
 WIDTH = 900
 HEIGHT = 600
 
-screen = pygame.display.set_mode((WIDTH, HEIGHT))
+# Create a hidden memory surface instead of a desktop window pop-up
+screen = pygame.Surface((WIDTH, HEIGHT))
 pygame.display.set_caption("NEON DUEL")
 
 clock = pygame.time.Clock()
@@ -470,252 +484,3 @@ while running:
                 35
             )
 
-            if player2_score >= WIN_SCORE:
-
-                game_over = True
-                winner = "PLAYER 2 WINS!"
-
-            else:
-
-                start_countdown(1)
-
-        # =====================
-        # PLAYER 2 SCORES
-        # =====================
-        if ball.left > WIDTH:
-
-            player1_score += 1
-
-            make_particles(
-                WIDTH,
-                ball.centery,
-                BLUE,
-                35
-            )
-
-            if player1_score >= WIN_SCORE:
-
-                game_over = True
-                winner = "PLAYER 1 WINS!"
-
-            else:
-
-                start_countdown(-1)
-
-    # =====================
-    # UPDATE PARTICLES
-    # =====================
-    update_particles()
-
-    # =====================
-    # DRAW
-    # =====================
-    draw_background()
-
-    draw_particles()
-
-    draw_paddle(left, BLUE)
-    draw_paddle(right, RED)
-
-    draw_ball()
-
-    # =====================
-    # TITLE
-    # =====================
-    title = title_font.render(
-        "NEON DUEL",
-        True,
-        WHITE
-    )
-
-    screen.blit(
-        title,
-        (
-            WIDTH // 2 - title.get_width() // 2,
-            25
-        )
-    )
-
-    # =====================
-    # PLAYER LABELS
-    # =====================
-    p1 = small_font.render(
-        "PLAYER 1  [ W / S ]",
-        True,
-        BLUE
-    )
-
-    p2 = small_font.render(
-        "PLAYER 2  [ UP / DOWN ]",
-        True,
-        RED
-    )
-
-    screen.blit(
-        p1,
-        (35, HEIGHT - 35)
-    )
-
-    screen.blit(
-        p2,
-        (
-            WIDTH - p2.get_width() - 35,
-            HEIGHT - 35
-        )
-    )
-
-    # =====================
-    # SCORES
-    # =====================
-    score1 = score_font.render(
-        str(player1_score),
-        True,
-        BLUE
-    )
-
-    score2 = score_font.render(
-        str(player2_score),
-        True,
-        RED
-    )
-
-    screen.blit(
-        score1,
-        (
-            WIDTH // 2 - 110,
-            75
-        )
-    )
-
-    screen.blit(
-        score2,
-        (
-            WIDTH // 2 + 70,
-            75
-        )
-    )
-
-    # =====================
-    # COUNTDOWN DISPLAY
-    # =====================
-    if not game_over and countdown > 0:
-
-        countdown_text = big_font.render(
-            str(countdown),
-            True,
-            YELLOW
-        )
-
-        screen.blit(
-            countdown_text,
-            (
-                WIDTH // 2 - countdown_text.get_width() // 2,
-                HEIGHT // 2 - countdown_text.get_height() // 2
-            )
-        )
-
-    # =====================
-    # GO!
-    # =====================
-    elif not game_over and countdown == 0 and ball_x != 0:
-
-        # Only show GO briefly
-        if pygame.time.get_ticks() - countdown_timer < 500:
-
-            go_text = font.render(
-                "GO!",
-                True,
-                CYAN
-            )
-
-            screen.blit(
-                go_text,
-                (
-                    WIDTH // 2 - go_text.get_width() // 2,
-                    HEIGHT // 2 - 80
-                )
-            )
-
-    # =====================
-    # GAME OVER
-    # =====================
-    if game_over:
-
-        overlay = pygame.Surface(
-            (WIDTH, HEIGHT),
-            pygame.SRCALPHA
-        )
-
-        overlay.fill(
-            (0, 0, 0, 200)
-        )
-
-        screen.blit(
-            overlay,
-            (0, 0)
-        )
-
-        winner_text = title_font.render(
-            winner,
-            True,
-            YELLOW
-        )
-
-        screen.blit(
-            winner_text,
-            (
-                WIDTH // 2 - winner_text.get_width() // 2,
-                210
-            )
-        )
-
-        final_score = font.render(
-            f"{player1_score}  -  {player2_score}",
-            True,
-            WHITE
-        )
-
-        screen.blit(
-            final_score,
-            (
-                WIDTH // 2 - final_score.get_width() // 2,
-                270
-            )
-        )
-
-        restart_text = font.render(
-            "SPACE = PLAY AGAIN",
-            True,
-            WHITE
-        )
-
-        screen.blit(
-            restart_text,
-            (
-                WIDTH // 2 - restart_text.get_width() // 2,
-                330
-            )
-        )
-
-        quit_text = small_font.render(
-            "ESC = QUIT",
-            True,
-            GRAY
-        )
-
-        screen.blit(
-            quit_text,
-            (
-                WIDTH // 2 - quit_text.get_width() // 2,
-                370
-            )
-        )
-
-    # =====================
-    # UPDATE SCREEN
-    # =====================
-    pygame.display.flip()
-
-    clock.tick(60)
-
-pygame.quit()
