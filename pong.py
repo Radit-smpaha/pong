@@ -1,354 +1,872 @@
+
 import streamlit as st
-from PIL import Image
-import pygame
-import random
-import math
+import streamlit.components.v1 as components
 
-# =========================
-# STREAMLIT UI SETUP
-# =========================
-st.set_page_config(page_title="NEON DUEL", layout="centered")
-st.title("🕹️ NEON DUEL — Web Arcade")
-st.write("If you are running this in the cloud, frames will update automatically below.")
-
-# Create an empty placeholder to stream the gameplay frames
-frame_placeholder = st.empty()
-
-# Initialize Pygame and its font module explicitly
-pygame.init()
-pygame.font.init()
-
-# =========================
-# WINDOW DIMENSIONS
-# =========================
-WIDTH = 900
-HEIGHT = 600
-
-# Create a hidden memory surface instead of a desktop window pop-up
-screen = pygame.Surface((WIDTH, HEIGHT))
-
-clock = pygame.time.Clock()
-
-# =========================
-# COLORS
-# =========================
-BLACK = (5, 7, 18)
-DARK_BLUE = (10, 15, 35)
-BLUE = (50, 180, 255)
-CYAN = (80, 255, 240)
-RED = (255, 70, 100)
-WHITE = (240, 245, 255)
-YELLOW = (255, 220, 80)
-GRAY = (80, 90, 120)
-
-# =========================
-# FONTS (FIXED FOR CLOUD)
-# =========================
-# Using None tells Pygame to use its safe, built-in fallback font asset
-title_font = pygame.font.Font(None, 55)
-score_font = pygame.font.Font(None, 90)
-big_font = pygame.font.Font(None, 100)
-font = pygame.font.Font(None, 32)
-small_font = pygame.font.Font(None, 24)
-
-# =========================
-# PADDLES
-# =========================
-PADDLE_WIDTH = 18
-PADDLE_HEIGHT = 110
-PADDLE_SPEED = 8
-
-left = pygame.Rect(
-    40,
-    HEIGHT // 2 - PADDLE_HEIGHT // 2,
-    PADDLE_WIDTH,
-    PADDLE_HEIGHT
+st.set_page_config(
+    page_title="NEON DUEL",
+    page_icon="🕹️",
+    layout="wide",
+    initial_sidebar_state="collapsed"
 )
 
-right = pygame.Rect(
-    WIDTH - 58,
-    HEIGHT // 2 - PADDLE_HEIGHT // 2,
-    PADDLE_WIDTH,
-    PADDLE_HEIGHT
+st.markdown("""
+<style>
+    .block-container {
+        padding-top: 1rem;
+        padding-bottom: 0rem;
+        max-width: 1200px;
+    }
+
+    header, footer, #MainMenu {
+        visibility: hidden;
+    }
+
+    h1 {
+        text-align: center;
+        color: #50b4ff;
+        text-shadow: 0 0 18px #167aff;
+    }
+
+    .subtitle {
+        text-align: center;
+        color: #a8b9d9;
+        margin-bottom: 12px;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+st.markdown("# 🕹️ NEON DUEL")
+st.markdown(
+    '<p class="subtitle">Two players. One arena. First to 5 wins.</p>',
+    unsafe_allow_html=True
 )
 
-# =========================
-# BALL
-# =========================
-BALL_SIZE = 18
+game_html = r"""
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
 
-ball = pygame.Rect(
-    WIDTH // 2 - BALL_SIZE // 2,
-    HEIGHT // 2 - BALL_SIZE // 2,
-    BALL_SIZE,
-    BALL_SIZE
+<style>
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    background: #050712;
+    color: white;
+    font-family: Arial, sans-serif;
+    overflow: hidden;
+}
+
+#game-wrapper {
+    width: 100%;
+    max-width: 1100px;
+    margin: auto;
+    position: relative;
+}
+
+canvas {
+    display: block;
+    width: 100%;
+    aspect-ratio: 3 / 2;
+    background: #050712;
+    border: 2px solid #236dff;
+    border-radius: 12px;
+    box-shadow:
+        0 0 12px #167aff,
+        0 0 35px rgba(22, 122, 255, 0.25);
+    touch-action: none;
+    outline: none;
+}
+
+#controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 4px;
+}
+
+.player-info {
+    font-size: 14px;
+    line-height: 1.8;
+    color: #d0dcf5;
+}
+
+.blue {
+    color: #50b4ff;
+    font-weight: bold;
+}
+
+.red {
+    color: #ff4664;
+    font-weight: bold;
+}
+
+button {
+    border: 1px solid #50b4ff;
+    background: #101a35;
+    color: white;
+    font-size: 15px;
+    font-weight: bold;
+    padding: 12px 24px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: 0.15s;
+}
+
+button:hover {
+    background: #1c3c70;
+    box-shadow: 0 0 15px #167aff;
+    transform: translateY(-1px);
+}
+
+#message {
+    text-align: center;
+    color: #8ca6d7;
+    font-size: 13px;
+    padding-bottom: 10px;
+}
+
+.mobile-controls {
+    display: none;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 8px;
+}
+
+.mobile-group {
+    display: flex;
+    gap: 8px;
+}
+
+.mobile-controls button {
+    width: 65px;
+    height: 55px;
+    padding: 0;
+    font-size: 22px;
+    touch-action: none;
+    user-select: none;
+}
+
+@media (max-width: 700px) {
+    .mobile-controls {
+        display: flex;
+    }
+
+    .player-info {
+        font-size: 12px;
+    }
+
+    button {
+        padding: 10px 15px;
+    }
+}
+</style>
+</head>
+
+<body>
+<div id="game-wrapper">
+
+    <canvas id="game" width="900" height="600" tabindex="0"></canvas>
+
+    <div id="controls">
+        <div class="player-info">
+            <span class="blue">PLAYER 1</span><br>
+            W / S to move
+        </div>
+
+        <button id="restart">↻ RESTART GAME</button>
+
+        <div class="player-info" style="text-align:right">
+            <span class="red">PLAYER 2</span><br>
+            ↑ / ↓ to move
+        </div>
+    </div>
+
+    <div id="message">
+        Click the arena to focus the game. First to 5 points wins!
+    </div>
+
+    <div class="mobile-controls">
+        <div class="mobile-group">
+            <button id="p1up">↑</button>
+            <button id="p1down">↓</button>
+        </div>
+
+        <div class="mobile-group">
+            <button id="p2up">↑</button>
+            <button id="p2down">↓</button>
+        </div>
+    </div>
+
+</div>
+
+<script>
+(() => {
+    "use strict";
+
+    const canvas = document.getElementById("game");
+    const ctx = canvas.getContext("2d");
+
+    const W = canvas.width;
+    const H = canvas.height;
+
+    const WIN_SCORE = 5;
+
+    const COLORS = {
+        black: "#050712",
+        darkBlue: "#0a0f23",
+        blue: "#32b4ff",
+        cyan: "#50fff0",
+        red: "#ff4664",
+        white: "#f0f5ff",
+        yellow: "#ffdc50",
+        gray: "#506080"
+    };
+
+    const keys = {};
+
+    let lastTime = 0;
+    let animationId = null;
+    let gameOver = false;
+    let countdown = 3;
+    let countdownTime = 0;
+    let winner = "";
+    let particles = [];
+    let stars = [];
+
+    let score1 = 0;
+    let score2 = 0;
+
+    const paddle = {
+        width: 18,
+        height: 110,
+        speed: 460
+    };
+
+    const left = {
+        x: 40,
+        y: H / 2 - paddle.height / 2,
+        w: paddle.width,
+        h: paddle.height,
+        color: COLORS.blue
+    };
+
+    const right = {
+        x: W - 58,
+        y: H / 2 - paddle.height / 2,
+        w: paddle.width,
+        h: paddle.height,
+        color: COLORS.red
+    };
+
+    const ball = {
+        x: W / 2,
+        y: H / 2,
+        r: 10,
+        vx: 0,
+        vy: 0,
+        speed: 390
+    };
+
+    function random(min, max) {
+        return Math.random() * (max - min) + min;
+    }
+
+    function makeStars() {
+        stars = [];
+
+        for (let i = 0; i < 120; i++) {
+            stars.push({
+                x: random(0, W),
+                y: random(0, H),
+                r: random(1, 2.5),
+                alpha: random(0.15, 0.7)
+            });
+        }
+    }
+
+    function createParticles(x, y, color, amount = 18) {
+        for (let i = 0; i < amount; i++) {
+            const angle = random(0, Math.PI * 2);
+            const speed = random(80, 350);
+
+            particles.push({
+                x,
+                y,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed,
+                life: random(0.3, 0.8),
+                maxLife: 0.8,
+                size: random(2, 5),
+                color
+            });
+        }
+
+        if (particles.length > 700) {
+            particles.splice(0, particles.length - 700);
+        }
+    }
+
+    function resetBall(direction) {
+        ball.x = W / 2;
+        ball.y = H / 2;
+        ball.vx = 0;
+        ball.vy = 0;
+
+        countdown = 3;
+        countdownTime = 0;
+        ball.direction = direction;
+    }
+
+    function launchBall() {
+        const direction = ball.direction || 1;
+        const angle = random(-0.55, 0.55);
+
+        ball.vx = Math.cos(angle) * ball.speed * direction;
+        ball.vy = Math.sin(angle) * ball.speed;
+    }
+
+    function resetGame() {
+        score1 = 0;
+        score2 = 0;
+        gameOver = false;
+        winner = "";
+
+        left.y = H / 2 - left.h / 2;
+        right.y = H / 2 - right.h / 2;
+
+        particles = [];
+
+        resetBall(Math.random() < 0.5 ? -1 : 1);
+    }
+
+    function clampPaddles() {
+        left.y = Math.max(
+            15,
+            Math.min(H - 15 - left.h, left.y)
+        );
+
+        right.y = Math.max(
+            15,
+            Math.min(H - 15 - right.h, right.y)
+        );
+    }
+
+    function updatePaddleMovement(dt) {
+        if (keys["w"] || keys["W"] || keys["ArrowUp1"]) {
+            left.y -= paddle.speed * dt;
+        }
+
+        if (keys["s"] || keys["S"] || keys["ArrowDown1"]) {
+            left.y += paddle.speed * dt;
+        }
+
+        if (keys["ArrowUp"]) {
+            right.y -= paddle.speed * dt;
+        }
+
+        if (keys["ArrowDown"]) {
+            right.y += paddle.speed * dt;
+        }
+
+        clampPaddles();
+    }
+
+    function circleRectCollision(p, r) {
+        const closestX = Math.max(r.x, Math.min(p.x, r.x + r.w));
+        const closestY = Math.max(r.y, Math.min(p.y, r.y + r.h));
+
+        const dx = p.x - closestX;
+        const dy = p.y - closestY;
+
+        return dx * dx + dy * dy < p.r * p.r;
+    }
+
+    function hitPaddle(p, direction) {
+        const relativeHit =
+            (ball.y - (p.y + p.h / 2)) / (p.h / 2);
+
+        const angle = relativeHit * 0.9;
+
+        ball.speed = Math.min(ball.speed * 1.055, 850);
+
+        ball.vx = Math.cos(angle) * ball.speed * direction;
+        ball.vy = Math.sin(angle) * ball.speed;
+
+        if (direction === 1) {
+            ball.x = p.x + p.w + ball.r + 1;
+        } else {
+            ball.x = p.x - ball.r - 1;
+        }
+
+        createParticles(
+            ball.x,
+            ball.y,
+            p.color,
+            22
+        );
+    }
+
+    function scorePoint(player) {
+        if (player === 1) {
+            score1++;
+            createParticles(W - 10, ball.y, COLORS.blue, 45);
+        } else {
+            score2++;
+            createParticles(10, ball.y, COLORS.red, 45);
+        }
+
+        if (score1 >= WIN_SCORE || score2 >= WIN_SCORE) {
+            gameOver = true;
+            winner = score1 >= WIN_SCORE
+                ? "PLAYER 1 WINS!"
+                : "PLAYER 2 WINS!";
+
+            createParticles(W / 2, H / 2, COLORS.yellow, 100);
+        } else {
+            resetBall(player === 1 ? -1 : 1);
+        }
+    }
+
+    function updatePhysics(dt) {
+        if (gameOver) return;
+
+        if (countdown > 0) {
+            countdownTime += dt;
+
+            if (countdownTime >= 1) {
+                countdown--;
+                countdownTime = 0;
+
+                if (countdown === 0) {
+                    launchBall();
+                }
+            }
+
+            return;
+        }
+
+        ball.x += ball.vx * dt;
+        ball.y += ball.vy * dt;
+
+        // Top and bottom walls
+        if (ball.y - ball.r <= 15) {
+            ball.y = 15 + ball.r;
+            ball.vy = Math.abs(ball.vy);
+
+            createParticles(ball.x, ball.y, COLORS.cyan, 12);
+        }
+
+        if (ball.y + ball.r >= H - 15) {
+            ball.y = H - 15 - ball.r;
+            ball.vy = -Math.abs(ball.vy);
+
+            createParticles(ball.x, ball.y, COLORS.cyan, 12);
+        }
+
+        // Paddle collisions
+        if (ball.vx < 0 && circleRectCollision(ball, left)) {
+            hitPaddle(left, 1);
+        }
+
+        if (ball.vx > 0 && circleRectCollision(ball, right)) {
+            hitPaddle(right, -1);
+        }
+
+        // Scoring
+        if (ball.x + ball.r < 0) {
+            scorePoint(2);
+        }
+
+        if (ball.x - ball.r > W) {
+            scorePoint(1);
+        }
+    }
+
+    function updateParticles(dt) {
+        for (let i = particles.length - 1; i >= 0; i--) {
+            const p = particles[i];
+
+            p.x += p.vx * dt;
+            p.y += p.vy * dt;
+
+            p.vx *= Math.pow(0.15, dt);
+            p.vy *= Math.pow(0.15, dt);
+
+            p.life -= dt;
+
+            if (p.life <= 0) {
+                particles.splice(i, 1);
+            }
+        }
+    }
+
+    function drawBackground() {
+        ctx.fillStyle = COLORS.black;
+        ctx.fillRect(0, 0, W, H);
+
+        // Background glow
+        const gradient = ctx.createRadialGradient(
+            W / 2, H / 2, 10,
+            W / 2, H / 2, W * 0.65
+        );
+
+        gradient.addColorStop(0, "#101b3a");
+        gradient.addColorStop(1, "#050712");
+
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, W, H);
+
+        // Grid
+        ctx.strokeStyle = "rgba(50, 100, 200, 0.12)";
+        ctx.lineWidth = 1;
+
+        for (let x = 0; x <= W; x += 45) {
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, H);
+            ctx.stroke();
+        }
+
+        for (let y = 0; y <= H; y += 45) {
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(W, y);
+            ctx.stroke();
+        }
+
+        // Stars
+        for (const star of stars) {
+            ctx.globalAlpha = star.alpha;
+            ctx.fillStyle = "#9cbfff";
+
+            ctx.beginPath();
+            ctx.arc(star.x, star.y, star.r, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        ctx.globalAlpha = 1;
+
+        // Arena border
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = COLORS.blue;
+        ctx.strokeStyle = COLORS.blue;
+        ctx.lineWidth = 3;
+
+        roundRect(ctx, 10, 10, W - 20, H - 20, 12);
+        ctx.stroke();
+
+        ctx.shadowBlur = 0;
+
+        // Middle line
+        ctx.fillStyle = "rgba(120, 150, 200, 0.5)";
+
+        for (let y = 20; y < H; y += 35) {
+            ctx.fillRect(W / 2 - 2, y, 4, 18);
+        }
+    }
+
+    function roundRect(ctx, x, y, w, h, r) {
+        ctx.beginPath();
+        ctx.roundRect(x, y, w, h, r);
+    }
+
+    function drawPaddle(p) {
+        ctx.save();
+
+        ctx.shadowBlur = 25;
+        ctx.shadowColor = p.color;
+
+        ctx.fillStyle = p.color;
+        roundRect(
+            ctx,
+            p.x - 3,
+            p.y - 3,
+            p.w + 6,
+            p.h + 6,
+            8
+        );
+        ctx.fill();
+
+        ctx.shadowBlur = 0;
+
+        ctx.fillStyle = "rgba(255,255,255,0.8)";
+        roundRect(
+            ctx,
+            p.x + 4,
+            p.y + 10,
+            3,
+            p.h - 20,
+            2
+        );
+        ctx.fill();
+
+        ctx.restore();
+    }
+
+    function drawBall() {
+        ctx.save();
+
+        ctx.shadowBlur = 25;
+        ctx.shadowColor = COLORS.yellow;
+
+        ctx.fillStyle = COLORS.yellow;
+        ctx.beginPath();
+        ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.shadowBlur = 0;
+
+        ctx.fillStyle = COLORS.white;
+        ctx.beginPath();
+        ctx.arc(
+            ball.x - 3,
+            ball.y - 3,
+            3,
+            0,
+            Math.PI * 2
+        );
+        ctx.fill();
+
+        ctx.restore();
+    }
+
+    function drawParticles() {
+        for (const p of particles) {
+            ctx.globalAlpha = Math.max(
+                0,
+                p.life / p.maxLife
+            );
+
+            ctx.fillStyle = p.color;
+
+            ctx.shadowBlur = 8;
+            ctx.shadowColor = p.color;
+
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        ctx.globalAlpha = 1;
+        ctx.shadowBlur = 0;
+    }
+
+    function drawText(text, x, y, size, color, align = "center") {
+        ctx.save();
+
+        ctx.font = `bold ${size}px Arial, sans-serif`;
+        ctx.textAlign = align;
+        ctx.textBaseline = "middle";
+
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = color;
+
+        ctx.fillStyle = color;
+        ctx.fillText(text, x, y);
+
+        ctx.restore();
+    }
+
+    function render() {
+        drawBackground();
+        drawParticles();
+
+        drawPaddle(left);
+        drawPaddle(right);
+        drawBall();
+
+        // Title
+        drawText(
+            "NEON DUEL",
+            W / 2,
+            48,
+            30,
+            COLORS.white
+        );
+
+        // Scores
+        drawText(
+            String(score1),
+            W / 2 - 100,
+            120,
+            78,
+            COLORS.blue
+        );
+
+        drawText(
+            String(score2),
+            W / 2 + 100,
+            120,
+            78,
+            COLORS.red
+        );
+
+        // Labels
+        drawText(
+            "PLAYER 1",
+            100,
+            H - 35,
+            17,
+            COLORS.blue
+        );
+
+        drawText(
+            "PLAYER 2",
+            W - 100,
+            H - 35,
+            17,
+            COLORS.red
+        );
+
+        if (!gameOver && countdown > 0) {
+            drawText(
+                String(countdown),
+                W / 2,
+                H / 2,
+                100,
+                COLORS.yellow
+            );
+        }
+
+        if (!gameOver && countdown === 0 && Math.abs(ball.vx) > 0) {
+            // Small GO text at the start of the rally
+            if (Math.abs(ball.x - W / 2) < 25) {
+                drawText(
+                    "GO!",
+                    W / 2,
+                    H / 2 - 80,
+                    35,
+                    COLORS.cyan
+                );
+            }
+        }
+
+        if (gameOver) {
+            ctx.fillStyle = "rgba(5, 7, 18, 0.75)";
+            ctx.fillRect(0, 0, W, H);
+
+            drawText(
+                winner,
+                W / 2,
+                H / 2 - 30,
+                45,
+                COLORS.yellow
+            );
+
+            drawText(
+                "Press RESTART GAME to play again",
+                W / 2,
+                H / 2 + 35,
+                22,
+                COLORS.white
+            );
+        }
+    }
+
+    function frame(timestamp) {
+        if (!lastTime) {
+            lastTime = timestamp;
+        }
+
+        // Cap delta time to avoid large jumps after a tab switch
+        const dt = Math.min((timestamp - lastTime) / 1000, 0.033);
+        lastTime = timestamp;
+
+        updatePaddleMovement(dt);
+        updatePhysics(dt);
+        updateParticles(dt);
+        render();
+
+        animationId = requestAnimationFrame(frame);
+    }
+
+    // Keyboard controls
+    window.addEventListener("keydown", (event) => {
+        if (
+            ["ArrowUp", "ArrowDown", " "].includes(event.key)
+        ) {
+            event.preventDefault();
+        }
+
+        keys[event.key] = true;
+    });
+
+    window.addEventListener("keyup", (event) => {
+        keys[event.key] = false;
+    });
+
+    window.addEventListener("blur", () => {
+        for (const key in keys) {
+            keys[key] = false;
+        }
+    });
+
+    // Restart
+    document.getElementById("restart").addEventListener(
+        "click",
+        () => {
+            resetGame();
+            canvas.focus();
+        }
+    );
+
+    // Mobile / touch controls
+    function bindButton(id, key) {
+        const button = document.getElementById(id);
+
+        button.addEventListener("pointerdown", (event) => {
+            event.preventDefault();
+            keys[key] = true;
+            button.setPointerCapture(event.pointerId);
+        });
+
+        function release(event) {
+            event.preventDefault();
+            keys[key] = false;
+        }
+
+        button.addEventListener("pointerup", release);
+        button.addEventListener("pointercancel", release);
+        button.addEventListener("lostpointercapture", () => {
+            keys[key] = false;
+        });
+    }
+
+    bindButton("p1up", "ArrowUp1");
+    bindButton("p1down", "ArrowDown1");
+    bindButton("p2up", "ArrowUp");
+    bindButton("p2down", "ArrowDown");
+
+    makeStars();
+    resetGame();
+
+    if (animationId !== null) {
+        cancelAnimationFrame(animationId);
+    }
+
+    animationId = requestAnimationFrame(frame);
+
+})();
+</script>
+</body>
+</html>
+"""
+
+components.html(
+    game_html,
+    height=760,
+    scrolling=False
 )
 
-ball_x = 0
-ball_y = 0
-
-# =========================
-# SCORE
-# =========================
-player1_score = 0
-player2_score = 0
-
-WIN_SCORE = 5
-
-winner = ""
-game_over = False
-
-# =========================
-# COUNTDOWN
-# =========================
-countdown = 3
-countdown_timer = pygame.time.get_ticks()
-
-# =========================
-# STARS
-# =========================
-stars = []
-for i in range(100):
-    stars.append([
-        random.randint(0, WIDTH),
-        random.randint(0, HEIGHT),
-        random.randint(1, 3)
-    ])
-
-# =========================
-# PARTICLES
-# =========================
-particles = []
-
-def make_particles(x, y, color, amount=15):
-    for i in range(amount):
-        angle = random.uniform(0, math.pi * 2)
-        speed = random.uniform(1, 4)
-        particles.append([
-            x,
-            y,
-            math.cos(angle) * speed,
-            math.sin(angle) * speed,
-            random.randint(15, 30),
-            color
-        ])
-
-def update_particles():
-    for p in particles[:]:
-        p[0] += p[2]  # Update X position
-        p[1] += p[3]  # Update Y position
-        p[4] -= 1     # Decrease life timer
-        if p[4] <= 0:
-            particles.remove(p)
-
-def draw_particles():
-    for p in particles:
-        pygame.draw.circle(
-            screen,
-            p[5],
-            (int(p[0]), int(p[1])),
-            3
-        )
-
-# =========================
-# RESET ROUND
-# =========================
-def start_countdown(direction):
-    global ball_x, ball_y, countdown, countdown_timer
-    ball.center = (WIDTH // 2, HEIGHT // 2)
-    ball_x = 0
-    ball_y = 0
-    countdown = 3
-    countdown_timer = pygame.time.get_ticks()
-    start_countdown.direction = direction
-
-# =========================
-# START BALL
-# =========================
-def launch_ball():
-    global ball_x, ball_y
-    direction = getattr(start_countdown, "direction", 1)
-    ball_x = 6 * direction
-    ball_y = random.choice([-4, -3, 3, 4])
-
-# =========================
-# BACKGROUND
-# =========================
-def draw_background():
-    screen.fill(BLACK)
-
-    # Grid
-    for x in range(0, WIDTH, 45):
-        pygame.draw.line(screen, DARK_BLUE, (x, 0), (x, HEIGHT))
-    for y in range(0, HEIGHT, 45):
-        pygame.draw.line(screen, DARK_BLUE, (0, y), (WIDTH, y))
-
-    # Stars
-    for star in stars:
-        pygame.draw.circle(screen, GRAY, (star[0], star[1]), star[2])
-
-    # Arena border
-    pygame.draw.rect(screen, BLUE, (10, 10, WIDTH - 20, HEIGHT - 20), 3, border_radius=12)
-
-    # Middle line
-    for y in range(20, HEIGHT, 35):
-        pygame.draw.rect(screen, GRAY, (WIDTH // 2 - 2, y, 4, 18))
-
-# =========================
-# PADDLE DRAWING
-# =========================
-def draw_paddle(paddle, color):
-    glow = (color[0] // 3, color[1] // 3, color[2] // 3)
-    pygame.draw.rect(screen, glow, paddle.inflate(10, 10), border_radius=8)
-    pygame.draw.rect(screen, color, paddle, border_radius=6)
-    pygame.draw.rect(screen, WHITE, (paddle.x + 4, paddle.y + 10, 3, paddle.height - 20), border_radius=2)
-
-# =========================
-# BALL DRAWING
-# =========================
-def draw_ball():
-    pygame.draw.circle(screen, (100, 80, 30), ball.center, 18)
-    pygame.draw.circle(screen, YELLOW, ball.center, BALL_SIZE // 2)
-    pygame.draw.circle(screen, WHITE, (ball.centerx - 3, ball.centery - 3), 3)
-
-# =========================
-# START FIRST ROUND
-# =========================
-start_countdown(random.choice([-1, 1]))
-
-# =========================
-# MAIN LOOP
-# =========================
-running = True
-
-while running:
-    # Handle Pygame Events internally
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            running = False
-
-    # =====================
-    # COUNTDOWN TIMING
-    # =====================
-    if not game_over:
-        current_time = pygame.time.get_ticks()
-        elapsed = current_time - countdown_timer
-
-        if elapsed >= 1000 and countdown > 0:
-            countdown -= 1
-            countdown_timer = current_time
-            if countdown == 0:
-                launch_ball()
-
-    # =====================
-    # GAMEPLAY PHYSICS & LOGIC
-    # =====================
-    if not game_over and countdown == 0:
-        # Simple placeholder autonomous movement so the game plays itself on the web
-        if ball.centery < left.centery and random.random() < 0.70:
-            left.y -= PADDLE_SPEED
-        elif ball.centery > left.centery and random.random() < 0.70:
-            left.y += PADDLE_SPEED
-
-        if ball.centery < right.centery and random.random() < 0.70:
-            right.y -= PADDLE_SPEED
-        elif ball.centery > right.centery and random.random() < 0.70:
-            right.y += PADDLE_SPEED
-
-        # Keep paddles inside boundaries
-        left.top = max(15, left.top)
-        left.bottom = min(HEIGHT - 15, left.bottom)
-        right.top = max(15, right.top)
-        right.bottom = min(HEIGHT - 15, right.bottom)
-
-        # Move Ball
-        ball.x += int(ball_x)
-        ball.y += int(ball_y)
-
-        # Wall Collisions
-        if ball.top <= 15:
-            ball.top = 15
-            ball_y *= -1
-            make_particles(ball.centerx, ball.centery, CYAN)
-
-        if ball.bottom >= HEIGHT - 15:
-            ball.bottom = HEIGHT - 15
-            ball_y *= -1
-            make_particles(ball.centerx, ball.centery, CYAN)
-
-        # Left Paddle Collisions
-        if ball.colliderect(left) and ball_x < 0:
-            ball.left = left.right
-            ball_x *= -1
-            difference = ball.centery - left.centery
-            ball_y = difference / 12
-            if abs(ball_x) < 13:
-                ball_x *= 1.08
-            make_particles(ball.centerx, ball.centery, BLUE, 20)
-
-        # Right Paddle Collisions
-        if ball.colliderect(right) and ball_x > 0:
-            ball.right = right.left
-            ball_x *= -1
-            difference = ball.centery - right.centery
-            ball_y = difference / 12
-            if abs(ball_x) < 13:
-                ball_x *= 1.08
-            make_particles(ball.centerx, ball.centery, RED, 20)
-
-        # Score Calculations
-        if ball.right < 0:
-            player2_score += 1
-            make_particles(0, ball.centery, RED, 35)
-            if player2_score >= WIN_SCORE:
-                game_over = True
-                winner = "PLAYER 2 WINS!"
-            else:
-                start_countdown(1)
-
-        if ball.left > WIDTH:
-            player1_score += 1
-            make_particles(WIDTH, ball.centery, BLUE, 35)
-            if player1_score >= WIN_SCORE:
-                game_over = True
-                winner = "PLAYER 1 WINS!"
-            else:
-                start_countdown(-1)
-
-    # =====================
-    # RENDERING
-    # =====================
-    update_particles()
-    draw_background()
-    draw_particles()
-    draw_paddle(left, BLUE)
-    draw_paddle(right, RED)
-    draw_ball()
-
-    # Overlay Title
-    title = title_font.render("NEON DUEL", True, WHITE)
-    screen.blit(title, (WIDTH // 2 - title.get_width() // 2, 25))
-
-    # Player Labels
-    p1 = small_font.render("PLAYER 1  (AI)", True, BLUE)
-    p2 = small_font.render("PLAYER 2  (AI)", True, RED)
-    screen.blit(p1, (35, HEIGHT - 35))
-    screen.blit(p2, (WIDTH - p2.get_width() - 35, HEIGHT - 35))
-
-    # Scoreboards
-    score1 = score_font.render(str(player1_score), True, BLUE)
-    score2 = score_font.render(str(player2_score), True, RED)
-    screen.blit(score1, (WIDTH // 2 - 110, 75))
-    screen.blit(score2, (WIDTH // 2 + 70, 75))
-
-    # Countdown Numbers
-    if not game_over and countdown > 0:
-        countdown_text = big_font.render(str(countdown), True, YELLOW)
-        screen.blit(countdown_text, (WIDTH // 2 - countdown_text.get_width() // 2, HEIGHT // 2 - countdown_text.get_height() // 2))
-    elif not game_over and countdown == 0 and ball_x != 0:
-        if pygame.time.get_ticks() - countdown_timer < 500:
-            go_text = font.render("GO!", True, CYAN)
-            screen.blit(go_text, (WIDTH // 2 - go_text.get_width() // 2, HEIGHT // 2 - 80))
-
-    # Game Over State
-    if game_over:
+st.markdown("""
+<div style="text-align:center; color:#7185a8; font-size:12px;">
+NEON DUEL • Browser Edition • Built with HTML5 Canvas
+</div>
+""", unsafe_allow_html=True)
